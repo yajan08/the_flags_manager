@@ -1,9 +1,13 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/purchase_order.dart';
 import '../models/flag.dart';
 import '../services/purchase_order_service.dart';
 import '../services/site_service.dart';
+import '../widgets/my_button.dart';      // ✅ Integrated
+import '../widgets/my_text_field.dart'; // ✅ Integrated
 
 class AddPOScreen extends StatefulWidget {
   const AddPOScreen({super.key});
@@ -19,6 +23,12 @@ class _AddPOScreenState extends State<AddPOScreen> {
   final SiteService siteService = SiteService();
 
   List<FlagEntry> flagEntries = [];
+  bool _isSaving = false;
+
+  static const Color primaryOrange = Color(0xFFFF6F00);
+  static const Color bgColor = Color(0xFFF8F9FA);
+  static const Color textDark = Color(0xFF2D3436);
+  static const Color textMuted = Color(0xFF636E72);
 
   @override
   void dispose() {
@@ -26,78 +36,60 @@ class _AddPOScreenState extends State<AddPOScreen> {
     super.dispose();
   }
 
-  int get _totalQuantity =>
-      flagEntries.fold(0, (sum, e) => sum + e.quantity);
+  int get _totalQuantity => flagEntries.fold(0, (sum, e) => sum + e.quantity);
 
   Future<void> _savePO() async {
-  if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  if (flagEntries.isEmpty) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please add at least one flag batch')),
-    );
-    return;
-  }
-
-  final poNumber = _poNumberController.text.trim();
-  final user = FirebaseAuth.instance.currentUser;
-
-  try {
-    // Prevent overwrite
-    final existing = await poService.getPOById(poNumber);
-    if (existing != null) {
-      if (!mounted) return;
+    if (flagEntries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PO number already exists'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please add at least one flag batch')),
       );
       return;
     }
 
-    // 🔹 Create PO with pendingFlags = all flags, deliveredFlags = empty
-    final po = PurchaseOrder(
-      id: poNumber,
-      poNumber: poNumber,
-      pendingFlags: flagEntries.map((e) => e.toFlag()).toList(),
-      deliveredFlags: [],
-      createdBy: user?.email ?? 'Unknown',
-      createdAt: DateTime.now(),
-    );
+    setState(() => _isSaving = true);
+    final poNumber = _poNumberController.text.trim();
+    final user = FirebaseAuth.instance.currentUser;
 
-    await poService.addPO(po);
+    try {
+      final existing = await poService.getPOById(poNumber);
+      if (existing != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PO number already exists'), backgroundColor: Colors.red),
+        );
+        setState(() => _isSaving = false);
+        return;
+      }
 
-    // 🔹 Add all flags to Pending site
-    await siteService.addFlagsToSite(
-      siteId: 'pending',
-      siteName: 'Pending',
-      flags: po.pendingFlags,
-    );
+      final po = PurchaseOrder(
+        id: poNumber,
+        poNumber: poNumber,
+        pendingFlags: flagEntries.map((e) => e.toFlag()).toList(),
+        deliveredFlags: [],
+        createdBy: user?.email ?? 'Unknown',
+        createdAt: DateTime.now(),
+      );
 
-    if (!mounted) return;
+      await poService.addPO(po);
+      await siteService.addFlagsToSite(
+        siteId: 'pending',
+        siteName: 'Pending',
+        flags: po.pendingFlags,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('PO saved successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    if (!mounted) return;
-    Navigator.pop(context);
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error saving PO: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PO saved successfully!'), backgroundColor: Colors.green),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving PO: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
-}
-
 
   void _showAddBatchModal() {
     final typeController = TextEditingController(text: 'Tiranga');
@@ -107,104 +99,84 @@ class _AddPOScreenState extends State<AddPOScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16,
-            right: 16,
-            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            left: 24,
+            right: 24,
+            top: 24,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'Add Flag Batch',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark),
               ),
-              const SizedBox(height: 12),
-
-              DropdownButtonFormField<String>(
-                initialValue: typeController.text,
-                decoration: const InputDecoration(
-                  labelText: 'Flag Type',
-                  border: OutlineInputBorder(),
+              const SizedBox(height: 20),
+              
+              // Custom styled dropdown wrapper
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                items: ['Tiranga', 'Bhagwa']
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    typeController.text = val;
-                  }
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: typeController.text,
+                    decoration: const InputDecoration(border: InputBorder.none, labelText: "Flag Type"),
+                    items: ['Tiranga', 'Bhagwa']
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontWeight: FontWeight.bold))))
+                        .toList(),
+                    onChanged: (val) { if (val != null) typeController.text = val; },
+                  ),
+                ),
+              ),
+
+              MyTextField(
+                controller: sizeController,
+                hintText: 'Size (e.g., 10x6)',
+                obscureText: false,
+                prefixIcon: Icons.straighten_rounded,
+              ),
+
+              MyTextField(
+                controller: quantityController,
+                hintText: 'Quantity',
+                obscureText: false,
+                keyboardType: TextInputType.number,
+                prefixIcon: Icons.numbers_rounded,
+              ),
+
+              const SizedBox(height: 24),
+              MyButton(
+                text: 'Add to Order',
+                verticalPadding: 16,
+                onTap: () {
+                  final type = typeController.text.trim();
+                  final size = sizeController.text.trim();
+                  final qty = int.tryParse(quantityController.text.trim()) ?? 0;
+
+                  if (type.isEmpty || size.isEmpty || qty <= 0) return;
+
+                  setState(() {
+                    final existingIndex = flagEntries.indexWhere((e) => e.type == type && e.size == size);
+                    if (existingIndex >= 0) {
+                      flagEntries[existingIndex].quantity += qty;
+                    } else {
+                      flagEntries.add(FlagEntry(type: type, size: size, quantity: qty));
+                    }
+                  });
+                  Navigator.pop(context);
                 },
               ),
-
-              const SizedBox(height: 12),
-
-              TextFormField(
-                controller: sizeController,
-                decoration: const InputDecoration(
-                  labelText: 'Size (e.g., 10x6)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              TextFormField(
-                controller: quantityController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final type = typeController.text.trim();
-                    final size = sizeController.text.trim();
-                    final qty =
-                        int.tryParse(quantityController.text.trim()) ?? 0;
-
-                    if (type.isEmpty || size.isEmpty || qty <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please fill all fields correctly'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    setState(() {
-                      // Merge duplicate batches
-                      final existingIndex =
-                          flagEntries.indexWhere((e) => e.type == type && e.size == size);
-
-                      if (existingIndex >= 0) {
-                        flagEntries[existingIndex].quantity += qty;
-                      } else {
-                        flagEntries.add(
-                          FlagEntry(type: type, size: size, quantity: qty),
-                        );
-                      }
-                    });
-
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Add Batch'),
-                ),
-              ),
-
-              const SizedBox(height: 16),
             ],
           ),
         );
@@ -215,99 +187,135 @@ class _AddPOScreenState extends State<AddPOScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('New Purchase Order'),
+        backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: textDark),
+        title: const Text(
+          'New Purchase Order',
+          style: TextStyle(color: textDark, fontWeight: FontWeight.w800, fontSize: 18),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: _savePO,
-          ),
+          if (!_isSaving)
+            IconButton(
+              icon: const Icon(Icons.check_circle_rounded, color: primaryOrange, size: 28),
+              onPressed: _savePO,
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            )
         ],
       ),
       body: Form(
         key: _formKey,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TextFormField(
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+              child: MyTextField(
                 controller: _poNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'PO Number',
-                  prefixIcon: Icon(Icons.tag),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Required' : null,
+                hintText: 'Enter PO Number',
+                obscureText: false,
+                prefixIcon: Icons.tag_rounded,
               ),
             ),
-
             Expanded(
               child: flagEntries.isEmpty
-                  ? Center(
-                      child: TextButton.icon(
-                        onPressed: _showAddBatchModal,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add First Flag Batch'),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(24),
                       itemCount: flagEntries.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final entry = flagEntries[index];
-                        return Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ListTile(
-                            title: Text('${entry.type} - ${entry.size}'),
-                            subtitle: Text('Qty: ${entry.quantity}'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => setState(() => flagEntries.removeAt(index)),
-                            ),
-                          ),
-                        );
+                        return _buildBatchCard(entry, index);
                       },
                     ),
             ),
+            _buildBottomSummaryBar(),
+          ],
+        ),
+      ),
+    );
+  }
 
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.white,
-              child: SafeArea(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Total Quantity',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          Text(
-                            '$_totalQuantity Items',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _showAddBatchModal,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Batch'),
-                    ),
-                  ],
-                ),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.note_add_outlined, size: 64, color: textMuted.withAlpha(51)), // 0.2 * 255
+          const SizedBox(height: 16),
+          Text("No items added yet", style: TextStyle(color: textMuted.withAlpha(128), fontWeight: FontWeight.w600)), // 0.5 * 255
+          TextButton(onPressed: _showAddBatchModal, child: const Text("Add first batch", style: TextStyle(color: primaryOrange, fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBatchCard(FlagEntry entry, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))], // 0.02 * 255
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: primaryOrange.withAlpha(26), // 0.1 * 255
+          child: const Icon(Icons.flag_rounded, color: primaryOrange, size: 20),
+        ),
+        title: Text(entry.type, style: const TextStyle(fontWeight: FontWeight.w800, color: textDark)),
+        subtitle: Text("Size: ${entry.size}", style: const TextStyle(fontWeight: FontWeight.w500, color: textMuted)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(entry.quantity.toString(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textDark)),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent, size: 22),
+              onPressed: () => setState(() => flagEntries.removeAt(index)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomSummaryBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('ORDER TOTAL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: textMuted, letterSpacing: 1)),
+                  Text('$_totalQuantity Items', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark)),
+                ],
               ),
+            ),
+            const SizedBox(width: 16),
+            MyButton(
+              text: 'Add Batch',
+              verticalPadding: 14,
+              horizontalPadding: 20,
+              onTap: _showAddBatchModal,
+              prefixIcon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
             ),
           ],
         ),
@@ -318,16 +326,10 @@ class _AddPOScreenState extends State<AddPOScreen> {
 
 class FlagEntry {
   final String uid = DateTime.now().microsecondsSinceEpoch.toString();
-
   String type;
   String size;
   int quantity;
 
-  FlagEntry({
-    this.type = 'Tiranga',
-    this.size = '',
-    this.quantity = 0,
-  });
-
+  FlagEntry({this.type = 'Tiranga', this.size = '', this.quantity = 0});
   Flag toFlag() => Flag(type: type, size: size, quantity: quantity);
 }

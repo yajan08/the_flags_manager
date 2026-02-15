@@ -27,47 +27,70 @@ class MyButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const Color primaryOrange = Color(0xFFFF6F00);
+    const Color accentOrange = Color(0xFFFF9100);
+    
+    final bool isDisabled = onTap == null;
     final bg = backgroundColor ?? primaryOrange;
     final fg = textColor ?? Colors.white;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(borderRadius),
-        elevation: 2,
-        shadowColor: Colors.orange.withAlpha(30),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(borderRadius),
-          onTap: onTap,
-          splashColor: Colors.white24,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-                vertical: verticalPadding, horizontal: horizontalPadding),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (prefixIcon != null) ...[
-                  prefixIcon!,
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                  child: Text(
-                    text,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: fg,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: isDisabled ? 0.6 : 1.0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            gradient: backgroundColor == null ? const LinearGradient(
+              colors: [accentOrange, primaryOrange],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ) : null,
+            color: backgroundColor != null ? bg : null,
+            boxShadow: [
+              BoxShadow(
+                color: bg.withAlpha(77),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(borderRadius),
+              splashColor: Colors.white24,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                    vertical: verticalPadding, horizontal: horizontalPadding),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (prefixIcon != null) ...[
+                      prefixIcon!,
+                      const SizedBox(width: 10),
+                    ],
+                    Flexible(
+                      child: Text(
+                        text,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: fg,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (suffixIcon != null) ...[
+                      const SizedBox(width: 10),
+                      suffixIcon!,
+                    ],
+                  ],
                 ),
-                if (suffixIcon != null) ...[
-                  const SizedBox(width: 8),
-                  suffixIcon!,
-                ],
-              ],
+              ),
             ),
           ),
         ),

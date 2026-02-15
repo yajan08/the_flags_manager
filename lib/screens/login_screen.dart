@@ -1,6 +1,9 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flags_manager/services/user_service.dart';
 import 'package:flags_manager/widgets/my_text_field.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart'; 
 import '../services/auth_service.dart';
 import '../widgets/my_button.dart';
 
@@ -133,17 +136,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 40),
 
-                // 🔹 Email Field
+                // 🔹 Email Field (Using MyTextField)
                 MyTextField(
                   hintText: "Email",
+                  keyboardType: TextInputType.emailAddress,
                   obscureText: false,
                   controller: emailController,
                   prefixIcon: Icons.email_outlined,
                 ),
 
-                const SizedBox(height: 16),
-
-                // 🔹 Password Field
+                // 🔹 Password Field (Using MyTextField)
                 MyTextField(
                   hintText: "Password",
                   obscureText: true,
@@ -165,16 +167,105 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 24),
 
-                // 🔹 Login Button
-                SizedBox(
-                  width: double.infinity,
-                  child: MyButton(
-                    text: isLoading ? "Signing in..." : "Login",
-                    onTap: isLoading ? null : login,
-                  ),
+                // 🔹 Login Button (Using MyButton)
+                MyButton(
+                  text: isLoading ? "Signing in..." : "Sign in",
+                  onTap: isLoading ? null : login,
+                  prefixIcon: isLoading 
+                    ? const SizedBox(
+                        height: 20, 
+                        width: 20, 
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                      ) 
+                    : null,
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 40),
+
+                // 🔹 Professional Divider
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey[400])),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                      child: Text(
+                        "Support",
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey[400])),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // 🔹 Styled Contact Section
+                Column(
+                  children: [
+                    Text(
+                      "Need a demo or an account?",
+                      style: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () async {
+                        final Uri emailUri = Uri.parse(
+                          'mailto:yajanmehta@gmail.com?subject=Inventory App Request',
+                        );
+                        try {
+                          if (await canLaunchUrl(emailUri)) {
+                            await launchUrl(emailUri,
+                                mode: LaunchMode.externalApplication);
+                          } else {
+                            throw 'Could not launch email app';
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: primaryOrange,
+                                content: const Text(
+                                  "Please email: yajanmehta@gmail.com",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: primaryOrange.withAlpha(30)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.email_outlined,
+                                size: 18, color: primaryOrange),
+                            const SizedBox(width: 10),
+                            const Text(
+                              "yajanmehta@gmail.com",
+                              style: TextStyle(
+                                color: primaryOrange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
               ],
             ),
           ),

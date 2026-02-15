@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import '../models/site.dart';
 import '../services/site_service.dart';
+import '../widgets/my_button.dart';      // ✅ Integrated
+import '../widgets/my_text_field.dart'; // ✅ Integrated
 import 'add_site_screen.dart';
 
 class SiteListScreen extends StatefulWidget {
@@ -15,6 +17,11 @@ class SiteListScreen extends StatefulWidget {
 class _SiteListScreenState extends State<SiteListScreen> {
   final SiteService _siteService = SiteService();
 
+  static const Color primaryOrange = Color(0xFFFF6F00);
+  static const Color bgColor = Color(0xFFF8F9FA);
+  static const Color textDark = Color(0xFF2D3436);
+  static const Color textMuted = Color(0xFF636E72);
+
   @override
   void initState() {
     super.initState();
@@ -26,39 +33,52 @@ class _SiteListScreenState extends State<SiteListScreen> {
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Edit Site Name"),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-          ),
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text(
+          "Rename Site",
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
+        content: MyTextField(
+          controller: controller,
+          hintText: "Enter site name",
+          obscureText: false,
+          prefixIcon: Icons.edit_location_alt_rounded,
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final updated = Site(
-                  id: site.id,
-                  name: controller.text.trim(),
-                  activeFlags: site.activeFlags,
-                  washingFlags: site.washingFlags,
-                );
-
-                await _siteService.updateSite(updated);
-
-                if (mounted) Navigator.pop(context);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString())),
-                );
-              }
-            },
-            child: const Text("Save"),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel", style: TextStyle(color: textMuted)),
+                ),
+              ),
+              Expanded(
+                child: MyButton(
+                  text: "Save",
+                  verticalPadding: 12,
+                  onTap: () async {
+                    try {
+                      final updated = Site(
+                        id: site.id,
+                        name: controller.text.trim(),
+                        activeFlags: site.activeFlags,
+                        washingFlags: site.washingFlags,
+                      );
+                      await _siteService.updateSite(updated);
+                      if (mounted) Navigator.pop(context);
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString())),
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -78,11 +98,16 @@ class _SiteListScreenState extends State<SiteListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: const Text(
-          "Sites",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          "Management Sites",
+          style: TextStyle(fontWeight: FontWeight.w800, color: textDark, fontSize: 18),
         ),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: textDark,
       ),
       body: StreamBuilder<List<Site>>(
         stream: _siteService.getSites(),
@@ -92,35 +117,66 @@ class _SiteListScreenState extends State<SiteListScreen> {
           }
 
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: primaryOrange));
           }
 
           final sites = snapshot.data!;
-
           sites.sort((a, b) => a.name.compareTo(b.name));
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+            physics: const BouncingScrollPhysics(),
             itemCount: sites.length,
             itemBuilder: (context, index) {
               final site = sites[index];
-              final isSystem =
-                  SiteService.systemSiteIds.contains(site.id);
+              final isSystem = SiteService.systemSiteIds.contains(site.id);
 
-              return Card(
+              return Container(
                 margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.black.withAlpha(8)), // replaced 0.03
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(5), // replaced 0.02
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
+                ),
                 child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isSystem ? Colors.blueGrey.withAlpha(26) : primaryOrange.withAlpha(26), // replaced 0.1
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isSystem ? Icons.lock_outline_rounded : Icons.place_outlined,
+                      color: isSystem ? Colors.blueGrey : primaryOrange,
+                      size: 20,
+                    ),
+                  ),
                   title: Text(
                     site.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: textDark, fontSize: 16),
                   ),
                   subtitle: isSystem
-                      ? const Text("System Site")
-                      : null,
+                      ? Text(
+                          "Restricted System Site",
+                          style: TextStyle(color: textMuted.withAlpha(179), fontSize: 12, fontWeight: FontWeight.w500), // replaced 0.7
+                        )
+                      : Text(
+                          "Custom Location",
+                          style: TextStyle(color: textMuted.withAlpha(179), fontSize: 12), // replaced 0.7
+                        ),
                   trailing: isSystem
                       ? null
                       : PopupMenuButton<String>(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          icon: const Icon(Icons.more_vert_rounded, color: textMuted),
                           onSelected: (value) {
                             if (value == 'edit') {
                               _showEditDialog(site);
@@ -128,14 +184,26 @@ class _SiteListScreenState extends State<SiteListScreen> {
                               _deleteSite(site.id);
                             }
                           },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
                               value: 'edit',
-                              child: Text("Edit"),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_outlined, size: 18),
+                                  SizedBox(width: 12),
+                                  Text("Edit"),
+                                ],
+                              ),
                             ),
-                            PopupMenuItem(
+                            const PopupMenuItem(
                               value: 'delete',
-                              child: Text("Delete"),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                                  SizedBox(width: 12),
+                                  Text("Delete", style: TextStyle(color: Colors.red)),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -145,14 +213,15 @@ class _SiteListScreenState extends State<SiteListScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: MyButton(
+        text: "Add New Site",
+        verticalPadding: 14,
+        onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const AddSiteScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const AddSiteScreen()),
         ),
-        child: const Icon(Icons.add),
+        prefixIcon: const Icon(Icons.add_location_alt_rounded, color: Colors.white),
       ),
     );
   }
