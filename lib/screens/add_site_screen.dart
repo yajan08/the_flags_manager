@@ -15,32 +15,38 @@ class _AddSiteScreenState extends State<AddSiteScreen> {
   bool _isLoading = false;
 
   Future<void> _saveSite() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+  if (!mounted) return;
+  setState(() => _isLoading = true);
 
-    try {
-      final docRef =
-          FirebaseFirestore.instance.collection('sites').doc();
+  try {
+    final docRef = FirebaseFirestore.instance.collection('sites').doc();
 
-      final site = Site(
-        id: docRef.id,
-        name: _nameController.text.trim(),
-        activeFlags: [],
-        washingFlags: [],
-      );
+    final site = Site(
+      id: docRef.id,
+      name: _nameController.text.trim(),
+      activeFlags: [],
+      washingFlags: [],
+    );
 
-      await docRef.set(site.toMap());
+    await docRef.set(site.toMap());
 
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    if (!mounted) return;
+    Navigator.pop(context);
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString())),
+    );
   }
+
+  // Moved out of finally to avoid return inside finally
+  if (mounted) {
+    setState(() => _isLoading = false);
+  }
+}
+
 
   @override
   void dispose() {

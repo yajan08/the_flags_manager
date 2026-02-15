@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flags_manager/models/user.dart';
 import 'package:flags_manager/screens/receive_flags_screen.dart';
 import 'package:flags_manager/screens/site_detail_screen.dart';
 import 'package:flags_manager/screens/transfer_flags_screen.dart';
@@ -6,6 +7,8 @@ import 'package:flutter/material.dart';
 import '../models/site.dart';
 import '../services/site_service.dart';
 import '../widgets/my_drawer.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/user_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,11 +19,32 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final SiteService siteService = SiteService();
+  final UserService userService = UserService();
+  AppUser? currentUser;
 
   static const Color primaryOrange = Color(0xFFFF6F00);
   static const Color bgColor = Color(0xFFF6F6F6);
-
   final Set<String> expandedSites = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser != null) {
+      final userData =
+          await userService.getCurrentUserData(firebaseUser.uid);
+
+      if (!mounted) return; // ✅ Check if widget is still in tree
+
+      setState(() {
+        currentUser = userData;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,13 +62,13 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: const MyDrawer(),
       body: Stack(
         children: [
-
           /// CONTENT
           StreamBuilder<List<Site>>(
             stream: siteService.getSites(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(
+                    child: CircularProgressIndicator());
               }
 
               final sites = snapshot.data!;
@@ -63,19 +87,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final totalFlags = sites.fold<int>(
                   0,
-                  (sum, s) =>
-                      sum +
+                  (sum, s) => sum +
                       s.activeFlags.fold(
                           0, (s2, f) => s2 + f.quantity));
 
               return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
+                padding:
+                    const EdgeInsets.fromLTRB(16, 16, 16, 140),
                 child: ListView(
                   children: [
-
                     /// SUMMARY CARD
                     _buildSummaryCard(totalFlags),
-
                     const SizedBox(height: 24),
 
                     _buildSectionTitle("Core Sites"),
@@ -93,7 +115,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     _buildSectionTitle("Disposed"),
                     _buildExpandableCard(disposed),
-
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -113,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withAlpha(85),
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: const [
                       BoxShadow(
@@ -129,9 +150,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryOrange,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 14),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius:
+                                  BorderRadius.circular(14),
                             ),
                           ),
                           onPressed: () {
@@ -153,11 +176,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             foregroundColor: primaryOrange,
                             side:
                                 const BorderSide(color: primaryOrange),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 14),
                             shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
                           onPressed: () {
@@ -241,8 +263,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildExpandableCard(Site site) {
     final isExpanded = expandedSites.contains(site.id);
-    final total = site.activeFlags.fold<int>(
-        0, (sum, f) => sum + f.quantity);
+    final total =
+        site.activeFlags.fold<int>(0, (sum, f) => sum + f.quantity);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -259,19 +281,14 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Column(
         children: [
-
-          /// HEADER
           ListTile(
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
             title: Text(
               site.name,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             subtitle: Text("$total flags"),
-
-            /// CHEVRON CONTROLS EXPANSION ONLY
             trailing: IconButton(
               icon: AnimatedRotation(
                 turns: isExpanded ? 0.5 : 0.0,
@@ -279,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const Icon(Icons.expand_more),
               ),
               onPressed: () {
+                if (!mounted) return; // ✅ Safety check
                 setState(() {
                   if (isExpanded) {
                     expandedSites.remove(site.id);
@@ -288,8 +306,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               },
             ),
-
-            /// TAP ANYWHERE ELSE → GO TO DETAIL
             onTap: () {
               Navigator.push(
                 context,
@@ -299,30 +315,25 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-
-          /// EXPANDED CONTENT
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 200),
             crossFadeState: isExpanded
                 ? CrossFadeState.showFirst
                 : CrossFadeState.showSecond,
             firstChild: Padding(
-              padding:
-                  const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
               child: site.activeFlags.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.only(top: 10),
                       child: Text(
                         "No flags available",
-                        style:
-                            TextStyle(color: Colors.grey),
+                        style: TextStyle(color: Colors.grey),
                       ),
                     )
                   : Column(
                       children: site.activeFlags.map((flag) {
                         return Padding(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 6),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Row(
                             children: [
                               Expanded(child: Text(flag.type)),
@@ -330,8 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Text(
                                 flag.quantity.toString(),
                                 style: const TextStyle(
-                                  fontWeight:
-                                      FontWeight.w600,
+                                  fontWeight: FontWeight.w600,
                                   color: primaryOrange,
                                 ),
                               ),

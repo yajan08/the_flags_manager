@@ -7,6 +7,7 @@ class MyTextField extends StatefulWidget {
   final FocusNode? focusNode;
   final TextInputType keyboardType;
   final void Function(String)? onChanged;
+  final IconData? prefixIcon; // ✅ Added
 
   const MyTextField({
     super.key,
@@ -16,6 +17,7 @@ class MyTextField extends StatefulWidget {
     this.focusNode,
     this.keyboardType = TextInputType.text,
     this.onChanged,
+    this.prefixIcon, // ✅ Added
   });
 
   @override
@@ -34,21 +36,44 @@ class _MyTextFieldState extends State<MyTextField> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextField(
         controller: widget.controller,
         obscureText: _isObscured,
         focusNode: widget.focusNode,
         keyboardType: widget.keyboardType,
         onChanged: widget.onChanged,
+        cursorColor: Colors.orange.shade700,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.orange.shade50,
+
           hintText: widget.hintText,
-          hintStyle: TextStyle(color: Theme.of(context).colorScheme.secondary),
+          hintStyle: TextStyle(
+            color: Colors.orange.shade400,
+            fontWeight: FontWeight.w400,
+          ),
+
+          // ✅ Prefix Icon Support
+          prefixIcon: widget.prefixIcon != null
+              ? Icon(
+                  widget.prefixIcon,
+                  color: Colors.orange.shade600,
+                )
+              : null,
+
+          // Password Visibility Toggle
           suffixIcon: widget.obscureText
               ? IconButton(
                   icon: Icon(
-                    _isObscured ? Icons.visibility_off : Icons.visibility,
-                    color: Theme.of(context).colorScheme.secondary,
+                    _isObscured
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    color: Colors.orange.shade600,
                   ),
                   onPressed: () {
                     setState(() {
@@ -57,15 +82,30 @@ class _MyTextFieldState extends State<MyTextField> {
                   },
                 )
               : null,
+
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide.none,
+          ),
+
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.tertiary),
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide(
+              color: Colors.orange.shade200,
+              width: 1.5,
+            ),
           ),
+
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide(
+              color: Colors.orange.shade700,
+              width: 2,
+            ),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         ),
       ),
     );

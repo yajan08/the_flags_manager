@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import '../models/flag.dart';
 import '../models/site.dart';
@@ -145,7 +147,7 @@ class _TransferFlagsScreenState extends State<TransferFlagsScreen> {
 
                 /// FROM DROPDOWN
                 DropdownButtonFormField<String>(
-                  value: _fromSiteId,
+                  initialValue: _fromSiteId,
                   hint: const Text("Select From Site"),
                   items: filteredSites
                       .map(
@@ -167,7 +169,7 @@ class _TransferFlagsScreenState extends State<TransferFlagsScreen> {
 
                 /// TO DROPDOWN
                 DropdownButtonFormField<String>(
-                  value: _toSiteId,
+                  initialValue: _toSiteId,
                   hint: const Text("Select To Site"),
                   items: filteredSites
                       .map(

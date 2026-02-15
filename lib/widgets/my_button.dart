@@ -26,17 +26,21 @@ class MyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = backgroundColor ?? Theme.of(context).colorScheme.primary;
-    final fg = textColor ?? Theme.of(context).colorScheme.onPrimary;
+    const Color primaryOrange = Color(0xFFFF6F00);
+    final bg = backgroundColor ?? primaryOrange;
+    final fg = textColor ?? Colors.white;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
       child: Material(
         color: bg,
         borderRadius: BorderRadius.circular(borderRadius),
+        elevation: 2,
+        shadowColor: Colors.orange.withAlpha(30),
         child: InkWell(
           borderRadius: BorderRadius.circular(borderRadius),
           onTap: onTap,
+          splashColor: Colors.white24,
           child: Container(
             padding: EdgeInsets.symmetric(
                 vertical: verticalPadding, horizontal: horizontalPadding),

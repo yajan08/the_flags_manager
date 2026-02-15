@@ -24,6 +24,20 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
   static const Color bgColor = Color(0xFFF6F6F6);
 
   @override
+  void initState() {
+    super.initState();
+    _ensureDefaultSites();
+  }
+
+  Future<void> _ensureDefaultSites() async {
+    try {
+      await siteService.ensureDefaultSitesExist();
+    } catch (e) {
+      debugPrint("Error ensuring default sites: $e");
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bgColor,
@@ -38,8 +52,13 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final updatedSite = snapshot.data!
-              .firstWhere((s) => s.id == widget.site.id);
+          // Use firstWhere with orElse to avoid crashes
+          final updatedSite = snapshot.data!.firstWhere(
+            (s) => s.id == widget.site.id,
+            orElse: () => snapshot.data!.isNotEmpty
+                ? snapshot.data!.first
+                : Site(id: 'pending', name: 'Pending', activeFlags: [], washingFlags: []),
+          );
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -225,8 +244,7 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
               hintText: "0",
               isDense: true,
               contentPadding:
-                  const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -271,8 +289,7 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
   // ACTIONS
   // ==========================================================
 
-  Future<void> _moveToWashing(
-      Flag flag, String key) async {
+  Future<void> _moveToWashing(Flag flag, String key) async {
     final qty = selectedActiveQty[key] ?? 0;
 
     if (qty <= 0) {
@@ -303,8 +320,7 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
     setState(() => isProcessing = false);
   }
 
-  Future<void> _moveToActive(
-      Flag flag, String key) async {
+  Future<void> _moveToActive(Flag flag, String key) async {
     final qty = selectedWashingQty[key] ?? 0;
 
     if (qty <= 0) {

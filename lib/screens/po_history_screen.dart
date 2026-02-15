@@ -122,8 +122,9 @@ class POListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalQty =
-        po.flags.fold(0, (sum, item) => sum + item.quantity);
+    // 🔹 Total includes both pending and delivered flags
+    final totalQty = po.pendingFlags.fold(0, (sum, f) => sum + f.quantity) +
+        po.deliveredFlags.fold(0, (sum, f) => sum + f.quantity);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
