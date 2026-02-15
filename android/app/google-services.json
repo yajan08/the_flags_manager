@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1015121895633",
+    "project_id": "flagss-manager",
+    "storage_bucket": "flagss-manager.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1015121895633:android:8b459223e843e97a5d65f0",
+        "android_client_info": {
+          "package_name": "com.example.flags_manager"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBb951_y--T6bWt7IaMpvqs6Qcbg8YXgJg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
