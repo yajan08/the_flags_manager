@@ -31,6 +31,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // 2. ENABLE MULTIDEX (Crucial for Firebase apps)
+        // Firebase is a large library; without this, the app often 
+        // fails to initialize on older devices or in release mode.
+        multiDexEnabled = true
     }
 
     buildTypes {
