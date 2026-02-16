@@ -51,6 +51,8 @@ class _AddPOScreenState extends State<AddPOScreen> {
     setState(() => _isSaving = true);
     final poNumber = _poNumberController.text.trim();
     final user = FirebaseAuth.instance.currentUser;
+    // ✅ Extract email once for both services
+    final String userEmail = user?.email ?? 'Unknown User';
 
     try {
       final existing = await poService.getPOById(poNumber);
@@ -67,15 +69,19 @@ class _AddPOScreenState extends State<AddPOScreen> {
         poNumber: poNumber,
         pendingFlags: flagEntries.map((e) => e.toFlag()).toList(),
         deliveredFlags: [],
-        createdBy: user?.email ?? 'Unknown',
+        createdBy: userEmail,
         createdAt: DateTime.now(),
       );
 
+      // 1. Save the Purchase Order (Logic in PO Service remains unchanged)
       await poService.addPO(po);
+
+      // 2. Add flags to 'Pending' site and trigger the Inventory Log
       await siteService.addFlagsToSite(
         siteId: 'pending',
         siteName: 'Pending',
         flags: po.pendingFlags,
+        userEmail: userEmail, // ✅ Now passing user email for history tracking
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -121,7 +127,6 @@ class _AddPOScreenState extends State<AddPOScreen> {
               ),
               const SizedBox(height: 20),
               
-              // Custom styled dropdown wrapper
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
@@ -248,9 +253,9 @@ class _AddPOScreenState extends State<AddPOScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.note_add_outlined, size: 64, color: textMuted.withAlpha(51)), // 0.2 * 255
+          Icon(Icons.note_add_outlined, size: 64, color: textMuted.withAlpha(51)),
           const SizedBox(height: 16),
-          Text("No items added yet", style: TextStyle(color: textMuted.withAlpha(128), fontWeight: FontWeight.w600)), // 0.5 * 255
+          Text("No items added yet", style: TextStyle(color: textMuted.withAlpha(128), fontWeight: FontWeight.w600)),
           TextButton(onPressed: _showAddBatchModal, child: const Text("Add first batch", style: TextStyle(color: primaryOrange, fontWeight: FontWeight.bold))),
         ],
       ),
@@ -263,12 +268,12 @@ class _AddPOScreenState extends State<AddPOScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))], // 0.02 * 255
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: primaryOrange.withAlpha(26), // 0.1 * 255
+          backgroundColor: primaryOrange.withAlpha(26),
           child: const Icon(Icons.flag_rounded, color: primaryOrange, size: 20),
         ),
         title: Text(entry.type, style: const TextStyle(fontWeight: FontWeight.w800, color: textDark)),

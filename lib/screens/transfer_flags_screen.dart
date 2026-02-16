@@ -1,11 +1,12 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ Added for logging
 import '../models/flag.dart';
 import '../models/site.dart';
 import '../services/site_service.dart';
-import '../widgets/my_button.dart'; // ✅ Integrated
-import '../widgets/my_text_field.dart'; // ✅ Integrated
+import '../widgets/my_button.dart'; 
+import '../widgets/my_text_field.dart'; 
 
 class TransferFlagsScreen extends StatefulWidget {
   const TransferFlagsScreen({super.key});
@@ -88,10 +89,14 @@ class _TransferFlagsScreenState extends State<TransferFlagsScreen> {
 
     setState(() => _isLoading = true);
     try {
+      // ✅ Logged-in user email added for history tracking
+      final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "Unknown User";
+
       await _siteService.transferFlags(
         fromSiteId: _fromSiteId!,
         toSiteId: _toSiteId!,
         flagsToTransfer: flagsToTransfer,
+        userEmail: userEmail, // ✅ Passed to service for logging
         toWashing: false,
       );
       if (mounted) Navigator.pop(context);
@@ -317,7 +322,6 @@ class _TransferFlagsScreenState extends State<TransferFlagsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
-        top: false,
         child: MyButton(
           text: _isLoading ? "Processing..." : "Confirm Transfer",
           onTap: _isLoading ? null : () => _transfer(sites),

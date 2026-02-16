@@ -5,6 +5,7 @@ import 'package:flags_manager/services/auth_service.dart';
 import 'package:flags_manager/services/user_service.dart';
 import '../screens/po_history_screen.dart';
 import '../screens/manage_users_screen.dart';
+import '../screens/global_history_screen.dart'; 
 import '../models/user.dart';
 
 class MyDrawer extends StatelessWidget {
@@ -113,6 +114,7 @@ class MyDrawer extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                   children: [
+                    // 🏠 Home Dashboard - Visible to ALL
                     _buildNavItem(
                       context,
                       icon: Icons.dashboard_customize_outlined,
@@ -120,9 +122,31 @@ class MyDrawer extends StatelessWidget {
                       color: textDark,
                       onTap: () => Navigator.pop(context),
                     ),
+                    
+                    const SizedBox(height: 8),
 
+                    // 📜 Audit History - Visible to ALL
+                    _buildNavItem(
+                      context,
+                      icon: Icons.manage_history_rounded,
+                      label: "Audit History",
+                      color: textDark, // Keeping it neutral for general users
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const GlobalHistoryScreen()),
+                        );
+                      },
+                    ),
+
+                    // 💼 Admin Section - Visible to ADMINS & SUPERUSER
                     if (isAdmin || isSuperUser) ...[
-                      const SizedBox(height: 8),
+                      const Padding(
+                        padding: EdgeInsets.only(left: 16, top: 24, bottom: 8),
+                        child: Text("MANAGEMENT", 
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textMuted, letterSpacing: 1.2)),
+                      ),
                       _buildNavItem(
                         context,
                         icon: Icons.receipt_long_rounded,
@@ -152,6 +176,7 @@ class MyDrawer extends StatelessWidget {
                       ),
                     ],
 
+                    // 🔑 SuperUser Section - Visible ONLY to person1@gmail.com
                     if (isSuperUser) ...[
                       const Padding(
                         padding: EdgeInsets.only(left: 16, top: 24, bottom: 8),

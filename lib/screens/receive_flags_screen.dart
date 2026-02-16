@@ -1,13 +1,14 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ Added for logging
 import '../models/site.dart';
 import '../models/flag.dart';
 import '../models/purchase_order.dart';
 import '../services/site_service.dart';
 import '../services/purchase_order_service.dart';
-import '../widgets/my_button.dart'; // ✅ Added
-import '../widgets/my_text_field.dart'; // ✅ Added
+import '../widgets/my_button.dart'; 
+import '../widgets/my_text_field.dart'; 
 
 class ReceiveFlagsScreen extends StatefulWidget {
   const ReceiveFlagsScreen({super.key});
@@ -102,7 +103,6 @@ class _ReceiveFlagsScreenState extends State<ReceiveFlagsScreen> {
   }
 
   Future<void> _submit() async {
-    Navigator.pop(context);
     if (flagsToReceive.isEmpty || selectedPO == null || pendingSite == null) return;
 
     final List<Flag> toReceive = [];
@@ -134,7 +134,14 @@ class _ReceiveFlagsScreenState extends State<ReceiveFlagsScreen> {
 
     try {
       setState(() => loading = true);
-      await siteService.receiveFlagsFromPendingToOffice(toReceive);
+
+      // ✅ Logged-in user email added for history tracking
+      final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "Unknown User";
+
+      await siteService.receiveFlagsFromPendingToOffice(
+        receivedFlags: toReceive,
+        userEmail: userEmail, // ✅ Passed to service for logging
+      );
 
       for (var rFlag in toReceive) {
         final pendingFlag = selectedPO!.pendingFlags.firstWhere(
@@ -202,43 +209,45 @@ class _ReceiveFlagsScreenState extends State<ReceiveFlagsScreen> {
   }
 
   Widget _buildPOSearchView() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [
-              BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 20, offset: const Offset(0, 10))
-            ]),
-            child: Column(
-              children: [
-                const Icon(Icons.inventory_2_outlined, size: 48, color: primaryOrange),
-                const SizedBox(height: 16),
-                const Text("Purchase Order Check-in", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: textDark)),
-                const SizedBox(height: 8),
-                const Text("Enter the PO number to verify and receive pending flags into office stock.",
-                    textAlign: TextAlign.center, style: TextStyle(color: textMuted, fontSize: 14)),
-                const SizedBox(height: 12),
-                MyTextField(
-                  controller: _poController,
-                  hintText: 'PO Number',
-                  obscureText: false,
-                  prefixIcon: Icons.tag_rounded,
-                ),
-              ],
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [
+                BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 20, offset: const Offset(0, 10))
+              ]),
+              child: Column(
+                children: [
+                  const Icon(Icons.inventory_2_outlined, size: 48, color: primaryOrange),
+                  const SizedBox(height: 16),
+                  const Text("Purchase Order Check-in", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: textDark)),
+                  const SizedBox(height: 8),
+                  const Text("Enter the PO number to verify and receive pending flags into office stock.",
+                      textAlign: TextAlign.center, style: TextStyle(color: textMuted, fontSize: 14)),
+                  const SizedBox(height: 12),
+                  MyTextField(
+                    controller: _poController,
+                    hintText: 'PO Number',
+                    obscureText: false,
+                    prefixIcon: Icons.tag_rounded,
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          MyButton(
-            text: loading ? "Fetching..." : "Fetch Details",
-            onTap: loading ? null : _fetchPO,
-            prefixIcon: loading 
-              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : const Icon(Icons.search_rounded, color: Colors.white),
-          ),
-        ],
+            const SizedBox(height: 16),
+            MyButton(
+              text: loading ? "Fetching..." : "Fetch Details",
+              onTap: loading ? null : _fetchPO,
+              prefixIcon: loading 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Icon(Icons.search_rounded, color: Colors.white),
+            ),
+          ],
+        ),
       ),
     );
   }
