@@ -176,10 +176,10 @@ class MyDrawer extends StatelessWidget {
                 ),
               ),
 
-              // 🔹 Logout Section
+              // 🔹 Logout Section & Developer Credit
               const Divider(indent: 24, endIndent: 24),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                 child: _buildNavItem(
                   context,
                   icon: Icons.logout_rounded,
@@ -189,6 +189,23 @@ class MyDrawer extends StatelessWidget {
                     Navigator.pop(context);
                     await AuthService().logout();
                   },
+                ),
+              ),
+              
+              // 🔹 Subtle Developer Credit
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Column(
+                  children: [
+                    Text(
+                      "Developed by",
+                      style: TextStyle(color: textMuted.withAlpha(150), fontSize: 10, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      "yajanmehta@gmail.com",
+                      style: TextStyle(color: textMuted.withAlpha(180), fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ),
               ),
             ],
