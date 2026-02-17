@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/site.dart';
 import '../widgets/my_button.dart';      // ✅ Integrated
 import '../widgets/my_text_field.dart'; // ✅ Integrated
+import 'package:posthog_flutter/posthog_flutter.dart';
 
 class AddSiteScreen extends StatefulWidget {
   const AddSiteScreen({super.key});
@@ -30,19 +31,30 @@ class _AddSiteScreenState extends State<AddSiteScreen> {
 
     try {
       final docRef = FirebaseFirestore.instance.collection('sites').doc();
+      final siteName = _nameController.text.trim(); // Get the name for tracking
 
       final site = Site(
         id: docRef.id,
-        name: _nameController.text.trim(),
+        name: siteName,
         activeFlags: [],
         washingFlags: [],
       );
 
       await docRef.set(site.toMap());
 
+      // ✅ ADD THIS POSTHOG TRACKING HERE
+      Posthog().capture(
+        eventName: 'site_created',
+        properties: {
+          'site_name': siteName,
+          'site_id': docRef.id,
+        },
+      );
+
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
+      // ... existing error handling
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

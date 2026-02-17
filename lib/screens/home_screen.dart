@@ -9,6 +9,7 @@ import '../services/site_service.dart';
 import '../widgets/my_drawer.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/user_service.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadCurrentUser();
+    Posthog().screen(screenName: 'HomeScreen');
   }
 
   Future<void> _loadCurrentUser() async {
@@ -264,11 +266,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     expandedSites.remove(site.id);
                   } else {
                     expandedSites.add(site.id);
+                    // ✅ ADD THIS TRACKING CODE
+                    Posthog().capture(
+                      eventName: 'home_site_card_expanded',
+                      properties: {'site_name': site.name},
+                    );
                   }
                 });
               },
               onLongPress: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => SiteDetailsScreen(site: site)));
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(
+                    builder: (_) => SiteDetailsScreen(site: site),
+                    settings: const RouteSettings(name: 'SiteDetailsScreen'), // PostHog sees this name
+                  ),
+                );
               },
             ),
             AnimatedCrossFade(
@@ -307,7 +320,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                   ),
                   InkWell(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SiteDetailsScreen(site: site))),
+                    onTap: () => Navigator.push(
+                    context, 
+                    MaterialPageRoute(
+                      builder: (_) => SiteDetailsScreen(site: site),
+                      settings: const RouteSettings(name: 'SiteDetailsScreen'), // ✅ ADD THIS
+                    ),
+                  ),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -352,7 +371,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: "Add Flags",
                     icon: Icons.add_rounded,
                     isPrimary: true,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceiveFlagsScreen())),
+                    onTap: () => Navigator.push(
+                      context, 
+                      MaterialPageRoute(
+                        builder: (_) => const ReceiveFlagsScreen(),
+                        settings: const RouteSettings(name: 'ReceiveFlagsScreen'), // ✅ ADD THIS
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -361,7 +386,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: "Transfer",
                     icon: Icons.swap_horiz_rounded,
                     isPrimary: false,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransferFlagsScreen())),
+                    onTap: () => Navigator.push(
+                      context, 
+                      MaterialPageRoute(
+                        builder: (_) => const TransferFlagsScreen(),
+                        settings: const RouteSettings(name: 'TransferFlagsScreen'), // ✅ ADD THIS
+                      ),
+                    ),
                   ),
                 ),
               ],

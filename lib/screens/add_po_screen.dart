@@ -8,6 +8,7 @@ import '../services/purchase_order_service.dart';
 import '../services/site_service.dart';
 import '../widgets/my_button.dart';      // ✅ Integrated
 import '../widgets/my_text_field.dart'; // ✅ Integrated
+import 'package:posthog_flutter/posthog_flutter.dart';
 
 class AddPOScreen extends StatefulWidget {
   const AddPOScreen({super.key});
@@ -30,6 +31,9 @@ class _AddPOScreenState extends State<AddPOScreen> {
   static const Color textDark = Color(0xFF2D3436);
   static const Color textMuted = Color(0xFF636E72);
 
+  // Pre-defined common sizes
+  final List<String> commonSizes = ['10x15', '16x24', '20x30', '24x36'];
+
   @override
   void dispose() {
     _poNumberController.dispose();
@@ -51,7 +55,6 @@ class _AddPOScreenState extends State<AddPOScreen> {
     setState(() => _isSaving = true);
     final poNumber = _poNumberController.text.trim();
     final user = FirebaseAuth.instance.currentUser;
-    // ✅ Extract email once for both services
     final String userEmail = user?.email ?? 'Unknown User';
 
     try {
@@ -73,15 +76,22 @@ class _AddPOScreenState extends State<AddPOScreen> {
         createdAt: DateTime.now(),
       );
 
-      // 1. Save the Purchase Order (Logic in PO Service remains unchanged)
       await poService.addPO(po);
 
-      // 2. Add flags to 'Pending' site and trigger the Inventory Log
       await siteService.addFlagsToSite(
         siteId: 'pending',
         siteName: 'Pending',
         flags: po.pendingFlags,
-        userEmail: userEmail, // ✅ Now passing user email for history tracking
+        userEmail: userEmail,
+      );
+
+      Posthog().capture(
+        eventName: 'po_created',
+        properties: {
+          'po_number': poNumber,
+          'total_items': _totalQuantity,
+          'batch_count': flagEntries.length,
+        },
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -98,6 +108,8 @@ class _AddPOScreenState extends State<AddPOScreen> {
   }
 
   void _showAddBatchModal() {
+    Posthog().screen(screenName: 'AddBatchModal');
+    
     final typeController = TextEditingController(text: 'Tiranga');
     final sizeController = TextEditingController();
     final quantityController = TextEditingController();
@@ -110,80 +122,115 @@ class _AddPOScreenState extends State<AddPOScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            left: 24,
-            right: 24,
-            top: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Add Flag Batch',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark),
+        return StatefulBuilder( // Added to handle chip selection state inside modal
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                left: 24,
+                right: 24,
+                top: 24,
               ),
-              const SizedBox(height: 20),
-              
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: typeController.text,
-                    decoration: const InputDecoration(border: InputBorder.none, labelText: "Flag Type"),
-                    items: ['Tiranga', 'Bhagwa']
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontWeight: FontWeight.bold))))
-                        .toList(),
-                    onChanged: (val) { if (val != null) typeController.text = val; },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Add Flag Batch',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark),
                   ),
-                ),
+                  const SizedBox(height: 20),
+                  
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: typeController.text,
+                        decoration: const InputDecoration(border: InputBorder.none, labelText: "Flag Type"),
+                        items: ['Tiranga', 'Bhagwa']
+                            .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontWeight: FontWeight.bold))))
+                            .toList(),
+                        onChanged: (val) { if (val != null) typeController.text = val; },
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Common Sizes",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: commonSizes.map((size) {
+                      final bool isSelected = sizeController.text == size;
+                      return ChoiceChip(
+                        label: Text(size),
+                        selected: isSelected,
+                        selectedColor: primaryOrange.withAlpha(50),
+                        labelStyle: TextStyle(
+                          color: isSelected ? primaryOrange : textDark,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        onSelected: (selected) {
+                          setModalState(() {
+                            sizeController.text = selected ? size : '';
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+
+                  MyTextField(
+                    controller: sizeController,
+                    hintText: 'Size (e.g., 10x6)',
+                    obscureText: false,
+                    prefixIcon: Icons.straighten_rounded,
+                    onChanged: (val) {
+                      // Update modal state to refresh chips if user types manually
+                      setModalState(() {});
+                    },
+                  ),
+
+                  MyTextField(
+                    controller: quantityController,
+                    hintText: 'Quantity',
+                    obscureText: false,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: Icons.numbers_rounded,
+                  ),
+
+                  const SizedBox(height: 24),
+                  MyButton(
+                    text: 'Add to Order',
+                    verticalPadding: 16,
+                    onTap: () {
+                      final type = typeController.text.trim();
+                      final size = sizeController.text.trim();
+                      final qty = int.tryParse(quantityController.text.trim()) ?? 0;
+
+                      if (type.isEmpty || size.isEmpty || qty <= 0) return;
+
+                      setState(() {
+                        final existingIndex = flagEntries.indexWhere((e) => e.type == type && e.size == size);
+                        if (existingIndex >= 0) {
+                          flagEntries[existingIndex].quantity += qty;
+                        } else {
+                          flagEntries.add(FlagEntry(type: type, size: size, quantity: qty));
+                        }
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
               ),
-
-              MyTextField(
-                controller: sizeController,
-                hintText: 'Size (e.g., 10x6)',
-                obscureText: false,
-                prefixIcon: Icons.straighten_rounded,
-              ),
-
-              MyTextField(
-                controller: quantityController,
-                hintText: 'Quantity',
-                obscureText: false,
-                keyboardType: TextInputType.number,
-                prefixIcon: Icons.numbers_rounded,
-              ),
-
-              const SizedBox(height: 24),
-              MyButton(
-                text: 'Add to Order',
-                verticalPadding: 16,
-                onTap: () {
-                  final type = typeController.text.trim();
-                  final size = sizeController.text.trim();
-                  final qty = int.tryParse(quantityController.text.trim()) ?? 0;
-
-                  if (type.isEmpty || size.isEmpty || qty <= 0) return;
-
-                  setState(() {
-                    final existingIndex = flagEntries.indexWhere((e) => e.type == type && e.size == size);
-                    if (existingIndex >= 0) {
-                      flagEntries[existingIndex].quantity += qty;
-                    } else {
-                      flagEntries.add(FlagEntry(type: type, size: size, quantity: qty));
-                    }
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
+            );
+          }
         );
       },
     );

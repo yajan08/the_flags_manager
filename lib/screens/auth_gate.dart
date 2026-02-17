@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -26,10 +27,12 @@ class AuthGate extends StatelessWidget {
 
         // 🔹 Logged In
         if (snapshot.hasData) {
+          Posthog().screen(screenName: 'HomeScreen'); // Manual trigger
           return const HomeScreen();
         }
 
         // 🔹 Not Logged In
+        Posthog().screen(screenName: 'LoginScreen'); // Manual trigger
         return LoginScreen();
       },
     );

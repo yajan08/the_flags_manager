@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart'; 
 import '../services/auth_service.dart';
 import '../widgets/my_button.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
   String? errorMessage;
 
-  Future<void> login() async {
+  Future<void> login() async { // Renamed slightly to avoid confusion
     if (!mounted) return;
 
     setState(() {
@@ -31,14 +32,27 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final email = emailController.text.trim(); // Store email for tracking
       final userCredential = await _authService.login(
-        email: emailController.text.trim(),
+        email: email,
         password: passwordController.text.trim(),
       );
 
       final user = userCredential.user;
 
       if (user != null) {
+        // ✅ 1. IDENTIFY THE USER IN POSTHOG
+        Posthog().identify(
+          userId: user.uid,
+          userProperties: {
+            'email': email,
+            'role': 'user', // Default role
+          },
+        );
+
+        // ✅ 2. CAPTURE SUCCESSFUL LOGIN EVENT
+        Posthog().capture(eventName: 'login_success');
+
         final userService = UserService();
         final userDoc = await userService.getUserByUid(user.uid);
 
@@ -52,6 +66,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+
+      // ✅ 3. CAPTURE LOGIN FAILURE
+      Posthog().capture(
+        eventName: 'login_failed',
+        properties: {'error': e.toString()},
+      );
 
       setState(() {
         errorMessage = e.toString();
@@ -212,6 +232,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 8),
                     GestureDetector(
                       onTap: () async {
+                        // ✅ ADD THIS TRACKING
+                        Posthog().capture(eventName: 'clicked_support_email');
                         final Uri emailUri = Uri.parse(
                           'mailto:yajanmehta@gmail.com?subject=Inventory App Request',
                         );

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // ✅ Added for logging
+import 'package:posthog_flutter/posthog_flutter.dart';
 import '../models/site.dart';
 import '../models/flag.dart';
 import '../models/purchase_order.dart';
@@ -49,12 +50,22 @@ class _ReceiveFlagsScreenState extends State<ReceiveFlagsScreen> {
       setState(() => loading = true);
       final po = await poService.getPOById(poNumber);
       if (po == null) {
+        // ✅ ADD THIS: Track failed searches
+        Posthog().capture(
+          eventName: 'receive_po_not_found',
+          properties: {'po_number': poNumber},
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('PO not found')),
         );
         setState(() => loading = false);
         return;
       }
+      // ✅ ADD THIS: Track successful search
+      Posthog().capture(
+        eventName: 'receive_po_fetched',
+        properties: {'po_number': poNumber},
+      );
 
       final sites = await siteService.getSites().first;
       final pending = sites.firstWhere(
@@ -142,7 +153,8 @@ class _ReceiveFlagsScreenState extends State<ReceiveFlagsScreen> {
         receivedFlags: toReceive,
         userEmail: userEmail, // ✅ Passed to service for logging
       );
-
+      // ✅ ADD THIS POSTHOG TRACKING
+      Posthog().capture(eventName: 'inventory_received_success');
       for (var rFlag in toReceive) {
         final pendingFlag = selectedPO!.pendingFlags.firstWhere(
             (f) => f.type == rFlag.type && f.size == rFlag.size,

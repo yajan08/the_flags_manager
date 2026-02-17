@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../models/inventory_log.dart';
 import '../widgets/my_text_field.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 
 class GlobalHistoryScreen extends StatefulWidget {
   const GlobalHistoryScreen({super.key});
@@ -60,7 +61,19 @@ class _GlobalHistoryScreenState extends State<GlobalHistoryScreen> {
         );
       },
     );
-    if (picked != null) setState(() => selectedDateRange = picked);
+    if (picked != null) {
+      setState(() => selectedDateRange = picked);
+
+      // ✅ ADD THIS POSTHOG TRACKING
+      Posthog().capture(
+        eventName: 'audit_logs_date_filtered',
+        properties: {
+          'days_range': picked.end.difference(picked.start).inDays,
+          'start_date': picked.start.toIso8601String(),
+          'end_date': picked.end.toIso8601String(),
+        },
+      );
+    }
   }
 
   @override
@@ -118,14 +131,24 @@ class _GlobalHistoryScreenState extends State<GlobalHistoryScreen> {
           Row(
             children: [
               Expanded(
-                child: MyTextField(
-                  hintText: "Search email or size...",
-                  obscureText: false,
-                  prefixIcon: Icons.search_rounded,
-                  onChanged: (val) => setState(() => searchQuery = val),
-                  controller: TextEditingController()..text = searchQuery..selection = TextSelection.fromPosition(TextPosition(offset: searchQuery.length)),
-                ),
+              child: MyTextField(
+                hintText: "Search email or size...",
+                obscureText: false,
+                prefixIcon: Icons.search_rounded,
+                onChanged: (val) {
+                  setState(() => searchQuery = val);
+                  
+                  // ✅ ADD THIS: Track only if search is more than 3 characters
+                  if (val.length > 3) {
+                    Posthog().capture(
+                      eventName: 'audit_logs_searched',
+                      properties: {'search_term': val},
+                    );
+                  }
+                },
+                controller: TextEditingController()..text = searchQuery..selection = TextSelection.fromPosition(TextPosition(offset: searchQuery.length)),
               ),
+            ),
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: _pickDateRange, // ✅ Updated call

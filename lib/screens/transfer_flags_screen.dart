@@ -7,6 +7,7 @@ import '../models/site.dart';
 import '../services/site_service.dart';
 import '../widgets/my_button.dart'; 
 import '../widgets/my_text_field.dart'; 
+import 'package:posthog_flutter/posthog_flutter.dart';
 
 class TransferFlagsScreen extends StatefulWidget {
   const TransferFlagsScreen({super.key});
@@ -99,6 +100,9 @@ class _TransferFlagsScreenState extends State<TransferFlagsScreen> {
         userEmail: userEmail, // ✅ Passed to service for logging
         toWashing: false,
       );
+      // ✅ ADD THIS POSTHOG CAPTURE
+      Posthog().capture(eventName: 'inventory_transferred');
+      
       if (mounted) Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
