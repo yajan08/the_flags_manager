@@ -67,6 +67,8 @@ class _SiteListScreenState extends State<SiteListScreen> {
                         name: controller.text.trim(),
                         activeFlags: site.activeFlags,
                         washingFlags: site.washingFlags,
+                        stitchingFlags: site.stitchingFlags, // Added safety
+                        disposedFlags: site.disposedFlags,   // Added safety
                       );
                       await _siteService.updateSite(updated);
                       if (mounted) Navigator.pop(context);
@@ -121,95 +123,35 @@ class _SiteListScreenState extends State<SiteListScreen> {
           }
 
           final sites = snapshot.data!;
+          
+          // ✅ Calculate Total Disposed Flags across all sites
+          final totalDisposed = sites.fold<int>(
+            0, 
+            (sum, site) => sum + site.disposedFlags.fold(0, (s, f) => s + f.quantity)
+          );
+
           sites.sort((a, b) => a.name.compareTo(b.name));
 
-          return ListView.builder(
+          return ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
             physics: const BouncingScrollPhysics(),
-            itemCount: sites.length,
-            itemBuilder: (context, index) {
-              final site = sites[index];
-              final isSystem = SiteService.systemSiteIds.contains(site.id);
+            children: [
+              // ✅ Added Minimal Disposed Summary Card
+              _buildDisposedSummaryCard(totalDisposed),
+              
+              const SizedBox(height: 24),
+              const Text(
+                "ALL REGISTERED SITES",
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textMuted, letterSpacing: 1.2),
+              ),
+              const SizedBox(height: 12),
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.black.withAlpha(8)), // replaced 0.03
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(5), // replaced 0.02
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isSystem ? Colors.blueGrey.withAlpha(26) : primaryOrange.withAlpha(26), // replaced 0.1
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isSystem ? Icons.lock_outline_rounded : Icons.place_outlined,
-                      color: isSystem ? Colors.blueGrey : primaryOrange,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    site.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: textDark, fontSize: 16),
-                  ),
-                  subtitle: isSystem
-                      ? Text(
-                          "Restricted System Site",
-                          style: TextStyle(color: textMuted.withAlpha(179), fontSize: 12, fontWeight: FontWeight.w500), // replaced 0.7
-                        )
-                      : Text(
-                          "Custom Location",
-                          style: TextStyle(color: textMuted.withAlpha(179), fontSize: 12), // replaced 0.7
-                        ),
-                  trailing: isSystem
-                      ? null
-                      : PopupMenuButton<String>(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          icon: const Icon(Icons.more_vert_rounded, color: textMuted),
-                          onSelected: (value) {
-                            if (value == 'edit') {
-                              _showEditDialog(site);
-                            } else if (value == 'delete') {
-                              _deleteSite(site.id);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.edit_outlined, size: 18),
-                                  SizedBox(width: 12),
-                                  Text("Edit"),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
-                                  SizedBox(width: 12),
-                                  Text("Delete", style: TextStyle(color: Colors.red)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              );
-            },
+              // Existing Site List logic
+              ...sites.map((site) {
+                final isSystem = SiteService.systemSiteIds.contains(site.id);
+                return _buildSiteTile(site, isSystem);
+              }),
+            ],
           );
         },
       ),
@@ -222,6 +164,129 @@ class _SiteListScreenState extends State<SiteListScreen> {
           MaterialPageRoute(builder: (_) => const AddSiteScreen()),
         ),
         prefixIcon: const Icon(Icons.add_location_alt_rounded, color: Colors.white),
+      ),
+    );
+  }
+
+  // ✅ Minimal Modern Disposed Summary Widget
+  Widget _buildDisposedSummaryCard(int count) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.redAccent.withAlpha(30)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 20, offset: const Offset(0, 8))
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withAlpha(20),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Total Disposed Flags",
+                style: TextStyle(color: textMuted, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              Text(
+                count.toString(),
+                style: const TextStyle(color: textDark, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Helper to keep main build clean while preserving existing tile logic
+  Widget _buildSiteTile(Site site, bool isSystem) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withAlpha(8)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isSystem ? Colors.blueGrey.withAlpha(26) : primaryOrange.withAlpha(26),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            isSystem ? Icons.lock_outline_rounded : Icons.place_outlined,
+            color: isSystem ? Colors.blueGrey : primaryOrange,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          site.name,
+          style: const TextStyle(fontWeight: FontWeight.w700, color: textDark, fontSize: 16),
+        ),
+        subtitle: isSystem
+            ? Text(
+                "Restricted System Site",
+                style: TextStyle(color: textMuted.withAlpha(179), fontSize: 12, fontWeight: FontWeight.w500),
+              )
+            : Text(
+                "Custom Location",
+                style: TextStyle(color: textMuted.withAlpha(179), fontSize: 12),
+              ),
+        trailing: isSystem
+            ? null
+            : PopupMenuButton<String>(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                icon: const Icon(Icons.more_vert_rounded, color: textMuted),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showEditDialog(site);
+                  } else if (value == 'delete') {
+                    _deleteSite(site.id);
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 12),
+                        Text("Edit"),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text("Delete", style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

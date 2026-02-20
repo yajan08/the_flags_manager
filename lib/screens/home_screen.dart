@@ -83,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
               final office = _findSite(sites, 'office');
               final godown = _findSite(sites, 'godown');
               final pending = _findSite(sites, 'pending');
-              final disposed = _findSite(sites, 'disposed');
 
               final otherSites = sites.where((s) {
                 final n = s.name.toLowerCase();
@@ -111,8 +110,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ...otherSites.map((s) => _buildExpandableCard(s)),
                     const SizedBox(height: 32),
                   ],
-                  _buildSectionHeader("Archives", Icons.delete_outline_rounded),
-                  _buildExpandableCard(disposed, isArchive: true),
                 ],
               );
             },

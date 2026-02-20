@@ -131,103 +131,105 @@ class _AddPOScreenState extends State<AddPOScreen> {
                 right: 24,
                 top: 24,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Add Flag Batch',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark),
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      borderRadius: BorderRadius.circular(18),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Add Flag Batch',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark),
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: typeController.text,
-                        decoration: const InputDecoration(border: InputBorder.none, labelText: "Flag Type"),
-                        items: ['Tiranga', 'Bhagwa']
-                            .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontWeight: FontWeight.bold))))
-                            .toList(),
-                        onChanged: (val) { if (val != null) typeController.text = val; },
+                    const SizedBox(height: 20),
+                    
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: typeController.text,
+                          decoration: const InputDecoration(border: InputBorder.none, labelText: "Flag Type"),
+                          items: ['Tiranga', 'Bhagwa']
+                              .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontWeight: FontWeight.bold))))
+                              .toList(),
+                          onChanged: (val) { if (val != null) typeController.text = val; },
+                        ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Common Sizes",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: commonSizes.map((size) {
-                      final bool isSelected = sizeController.text == size;
-                      return ChoiceChip(
-                        label: Text(size),
-                        selected: isSelected,
-                        selectedColor: primaryOrange.withAlpha(50),
-                        labelStyle: TextStyle(
-                          color: isSelected ? primaryOrange : textDark,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        onSelected: (selected) {
-                          setModalState(() {
-                            sizeController.text = selected ? size : '';
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-
-                  MyTextField(
-                    controller: sizeController,
-                    hintText: 'Size (e.g., 10x6)',
-                    obscureText: false,
-                    prefixIcon: Icons.straighten_rounded,
-                    onChanged: (val) {
-                      // Update modal state to refresh chips if user types manually
-                      setModalState(() {});
-                    },
-                  ),
-
-                  MyTextField(
-                    controller: quantityController,
-                    hintText: 'Quantity',
-                    obscureText: false,
-                    keyboardType: TextInputType.number,
-                    prefixIcon: Icons.numbers_rounded,
-                  ),
-
-                  const SizedBox(height: 24),
-                  MyButton(
-                    text: 'Add to Order',
-                    verticalPadding: 16,
-                    onTap: () {
-                      final type = typeController.text.trim();
-                      final size = sizeController.text.trim();
-                      final qty = int.tryParse(quantityController.text.trim()) ?? 0;
-
-                      if (type.isEmpty || size.isEmpty || qty <= 0) return;
-
-                      setState(() {
-                        final existingIndex = flagEntries.indexWhere((e) => e.type == type && e.size == size);
-                        if (existingIndex >= 0) {
-                          flagEntries[existingIndex].quantity += qty;
-                        } else {
-                          flagEntries.add(FlagEntry(type: type, size: size, quantity: qty));
-                        }
-                      });
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
+                
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Common Sizes",
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: commonSizes.map((size) {
+                        final bool isSelected = sizeController.text == size;
+                        return ChoiceChip(
+                          label: Text(size),
+                          selected: isSelected,
+                          selectedColor: primaryOrange.withAlpha(50),
+                          labelStyle: TextStyle(
+                            color: isSelected ? primaryOrange : textDark,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          onSelected: (selected) {
+                            setModalState(() {
+                              sizeController.text = selected ? size : '';
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                
+                    MyTextField(
+                      controller: sizeController,
+                      hintText: 'Size (e.g., 10x6)',
+                      obscureText: false,
+                      prefixIcon: Icons.straighten_rounded,
+                      onChanged: (val) {
+                        // Update modal state to refresh chips if user types manually
+                        setModalState(() {});
+                      },
+                    ),
+                
+                    MyTextField(
+                      controller: quantityController,
+                      hintText: 'Quantity',
+                      obscureText: false,
+                      keyboardType: TextInputType.number,
+                      prefixIcon: Icons.numbers_rounded,
+                    ),
+                
+                    const SizedBox(height: 24),
+                    MyButton(
+                      text: 'Add to Order',
+                      verticalPadding: 16,
+                      onTap: () {
+                        final type = typeController.text.trim();
+                        final size = sizeController.text.trim();
+                        final qty = int.tryParse(quantityController.text.trim()) ?? 0;
+                
+                        if (type.isEmpty || size.isEmpty || qty <= 0) return;
+                
+                        setState(() {
+                          final existingIndex = flagEntries.indexWhere((e) => e.type == type && e.size == size);
+                          if (existingIndex >= 0) {
+                            flagEntries[existingIndex].quantity += qty;
+                          } else {
+                            flagEntries.add(FlagEntry(type: type, size: size, quantity: qty));
+                          }
+                        });
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ],
+                ),
               ),
             );
           }

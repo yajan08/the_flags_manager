@@ -2,14 +2,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ Added for Log Stream
+import 'package:cloud_firestore/cloud_firestore.dart'; 
 import '../models/site.dart';
 import '../models/flag.dart';
-import '../models/inventory_log.dart'; // ✅ Added
+import '../models/inventory_log.dart'; 
 import '../services/site_service.dart';
 import '../widgets/my_button.dart';
 import '../widgets/my_text_field.dart';
-import 'package:intl/intl.dart'; // ✅ Useful for formatting dates
+import 'package:intl/intl.dart'; 
 
 class SiteDetailsScreen extends StatefulWidget {
   final Site site;
@@ -25,6 +25,7 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
 
   final Map<String, int> selectedActiveQty = {};
   final Map<String, int> selectedWashingQty = {};
+  final Map<String, int> selectedStitchingQty = {}; 
   final Set<String> expandedItems = {}; 
 
   String searchQuery = "";
@@ -92,6 +93,8 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
 
                 final filteredActive = _filterFlags(updatedSite.activeFlags);
                 final filteredWashing = _filterFlags(updatedSite.washingFlags);
+                final filteredStitching = _filterFlags(updatedSite.stitchingFlags); 
+                final filteredDisposed = _filterFlags(updatedSite.disposedFlags); 
 
                 return ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -110,9 +113,21 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
                     else
                       ...filteredWashing.map((flag) => _buildWashingCard(flag)),
 
+                    const SizedBox(height: 32), 
+                    _sectionHeader("Stitching / Repair", Icons.handyman_outlined),
+                    if (filteredStitching.isEmpty)
+                      _emptyBox("No flags in stitching match your filters")
+                    else
+                      ...filteredStitching.map((flag) => _buildStitchingCard(flag)),
+
+                    const SizedBox(height: 32), 
+                    _sectionHeader("Disposed / Torn", Icons.delete_outline_rounded),
+                    if (filteredDisposed.isEmpty)
+                      _emptyBox("No flags disposed yet")
+                    else
+                      ...filteredDisposed.map((flag) => _buildDisposedCard(flag)),
+
                     const SizedBox(height: 32),
-                    
-                    // ✅ HISTORY SECTION START
                     _sectionHeader("Recent Activity", Icons.history_rounded),
                     _buildSiteHistoryList(updatedSite.name),
                     
@@ -127,7 +142,307 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
     );
   }
 
-  // ✅ New Widget to stream logs for this specific site
+  void _confirmDispose(Flag flag, String source) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirm Disposal"),
+        content: Text("Are you sure you want to dispose of ${flag.quantity}x ${flag.type} (${flag.size})? This action is permanent."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              String reason = source == 'stitching' ? "Stitching" : source == 'washing' ? "Washing" : "General";
+              _handleDisposal(flag, source, reason);
+            },
+            child: const Text("Dispose", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleDisposal(Flag flag, String source, String reason) async {
+    setState(() => isProcessing = true);
+    try {
+      final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "Unknown User";
+      await siteService.disposeFlags(
+        siteId: widget.site.id,
+        flags: [Flag(type: flag.type, size: flag.size, quantity: flag.quantity)],
+        source: source,
+        reason: reason,
+        userEmail: userEmail,
+      );
+      _showSnack("Flags disposed: $reason");
+    } catch (e) {
+      _showSnack(e.toString());
+    }
+    setState(() => isProcessing = false);
+  }
+
+  Widget _buildActiveCard(Flag flag) {
+    final key = "active_${flag.type}_${flag.size}";
+    final isWashExp = expandedItems.contains(key);
+    final isStitchExp = expandedItems.contains("${key}_stitch");
+    
+    final washCtrl = TextEditingController(text: selectedActiveQty[key]?.toString() ?? "");
+    final stitchCtrl = TextEditingController(text: selectedStitchingQty[key]?.toString() ?? "");
+
+    return _cardContainer(
+      borderColor: primaryOrange.withAlpha(26),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _flagInfoBlock(flag, "Available: ${flag.quantity}"),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => setState(() => isWashExp ? expandedItems.remove(key) : {expandedItems.remove("${key}_stitch"), expandedItems.add(key)}),
+                    icon: Icon(isWashExp ? Icons.close : Icons.local_laundry_service_rounded),
+                    color: primaryOrange,
+                    style: IconButton.styleFrom(backgroundColor: primaryOrange.withAlpha(20)),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: () => setState(() => isStitchExp ? expandedItems.remove("${key}_stitch") : {expandedItems.remove(key), expandedItems.add("${key}_stitch")}),
+                    icon: Icon(isStitchExp ? Icons.close : Icons.handyman_rounded),
+                    color: Colors.purple,
+                    style: IconButton.styleFrom(backgroundColor: Colors.purple.withAlpha(20)),
+                  ),
+                  PopupMenuButton(
+                    icon: const Icon(Icons.more_vert, color: textMuted),
+                    itemBuilder: (context) => [const PopupMenuItem(value: 'dispose', child: Text("Dispose Flag"))],
+                    onSelected: (val) => _confirmDispose(flag, 'active'),
+                  ),
+                ],
+              )
+            ],
+          ),
+          if (isWashExp || isStitchExp) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: MyTextField(
+                    hintText: isWashExp ? "Qty to Wash" : "Qty to Stitch",
+                    obscureText: false,
+                    controller: isWashExp ? washCtrl : stitchCtrl,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: Icons.edit_note_rounded,
+                    onChanged: (value) {
+                      int qty = int.tryParse(value) ?? 0;
+                      if (qty > flag.quantity) qty = flag.quantity;
+                      if (isWashExp) {
+                        selectedActiveQty[key] = qty;
+                      } else {
+                        selectedStitchingQty[key] = qty;
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                MyButton(
+                  text: "Send",
+                  backgroundColor: isStitchExp ? Colors.purple : primaryOrange,
+                  onTap: isProcessing ? null : () => isWashExp ? _moveToWashing(flag, key) : _handleMoveToStitching(flag, key),
+                  horizontalPadding: 20,
+                  borderRadius: 14,
+                ),
+              ],
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWashingCard(Flag flag) {
+    final key = "washing_${flag.type}_${flag.size}";
+    final isExpanded = expandedItems.contains(key);
+    final ctrl = TextEditingController(text: selectedWashingQty[key]?.toString() ?? "");
+
+    return _cardContainer(
+      color: const Color(0xFFF1F4F8),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _flagInfoBlock(flag, "In Washing: ${flag.quantity}", labelColor: Colors.blueGrey),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => setState(() => isExpanded ? expandedItems.remove(key) : expandedItems.add(key)),
+                    icon: Icon(isExpanded ? Icons.close : Icons.restore_rounded),
+                    color: Colors.green.shade700,
+                    style: IconButton.styleFrom(backgroundColor: Colors.green.withAlpha(20)),
+                  ),
+                  PopupMenuButton(
+                    icon: const Icon(Icons.more_vert, color: textMuted),
+                    itemBuilder: (context) => [const PopupMenuItem(value: 'dispose', child: Text("Dispose Flag"))],
+                    onSelected: (val) => _confirmDispose(flag, 'washing'),
+                  ),
+                ],
+              )
+            ],
+          ),
+          if (isExpanded) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: MyTextField(
+                    hintText: "Qty to Return",
+                    obscureText: false,
+                    controller: ctrl,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: Icons.restore_rounded,
+                    onChanged: (value) {
+                      int qty = int.tryParse(value) ?? 0;
+                      if (qty > flag.quantity) qty = flag.quantity;
+                      selectedWashingQty[key] = qty;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                MyButton(
+                  text: "Return",
+                  backgroundColor: Colors.green.shade600,
+                  onTap: isProcessing ? null : () => _moveToActive(flag, key),
+                  horizontalPadding: 20,
+                  borderRadius: 14,
+                ),
+              ],
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStitchingCard(Flag flag) {
+    final key = "stitch_${flag.type}_${flag.size}";
+    final isExpanded = expandedItems.contains(key);
+    final ctrl = TextEditingController(text: selectedStitchingQty[key]?.toString() ?? "");
+
+    return _cardContainer(
+      color: Colors.purple.withAlpha(5),
+      borderColor: Colors.purple.withAlpha(20),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _flagInfoBlock(flag, "In Stitching: ${flag.quantity}", labelColor: Colors.purple),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => setState(() => isExpanded ? expandedItems.remove(key) : expandedItems.add(key)),
+                    icon: Icon(isExpanded ? Icons.close : Icons.check_circle_rounded),
+                    color: Colors.purple,
+                    style: IconButton.styleFrom(backgroundColor: Colors.purple.withAlpha(15)),
+                  ),
+                  PopupMenuButton(
+                    icon: const Icon(Icons.more_vert, color: textMuted),
+                    itemBuilder: (context) => [const PopupMenuItem(value: 'dispose', child: Text("Repair Failed (Dispose)"))],
+                    onSelected: (val) => _confirmDispose(flag, 'stitching'),
+                  ),
+                ],
+              )
+            ],
+          ),
+          if (isExpanded) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: MyTextField(
+                    hintText: "Qty Fixed",
+                    obscureText: false,
+                    controller: ctrl,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: Icons.thumb_up_alt_rounded,
+                    onChanged: (value) {
+                      int qty = int.tryParse(value) ?? 0;
+                      if (qty > flag.quantity) qty = flag.quantity;
+                      selectedStitchingQty[key] = qty;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                MyButton(
+                  text: "Fix Done",
+                  backgroundColor: Colors.purple.shade400,
+                  onTap: isProcessing ? null : () => _handleReturnFromStitching(flag, key),
+                  horizontalPadding: 20,
+                  borderRadius: 14,
+                ),
+              ],
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisposedCard(Flag flag) {
+    return _cardContainer(
+      color: Colors.red.withAlpha(5),
+      borderColor: Colors.red.withAlpha(15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _flagInfoBlock(flag, "Disposed: ${flag.quantity}", labelColor: Colors.red),
+          if (flag.reason != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: Colors.red.withAlpha(20), borderRadius: BorderRadius.circular(8)),
+              child: Text(flag.reason!, style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+            )
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleMoveToStitching(Flag flag, String key) async {
+  final qty = selectedStitchingQty[key] ?? 0;
+  if (qty <= 0) { _showSnack("Enter valid quantity"); return; } // Added check
+  setState(() => isProcessing = true);
+  try {
+    await siteService.moveActiveToStitching(
+      siteId: widget.site.id,
+      flags: [Flag(type: flag.type, size: flag.size, quantity: qty)],
+      userEmail: FirebaseAuth.instance.currentUser?.email ?? "Unknown",
+    );
+    // ✅ Add these clean-up lines:
+    selectedStitchingQty.remove(key);
+    expandedItems.remove("${key}_stitch");
+    _showSnack("Moved to stitching");
+  } catch (e) { _showSnack(e.toString()); }
+  setState(() => isProcessing = false);
+}
+
+Future<void> _handleReturnFromStitching(Flag flag, String key) async {
+  final qty = selectedStitchingQty[key] ?? 0;
+  if (qty <= 0) { _showSnack("Enter valid quantity"); return; } // Added check
+  setState(() => isProcessing = true);
+  try {
+    await siteService.moveStitchingToActive(
+      siteId: widget.site.id,
+      flags: [Flag(type: flag.type, size: flag.size, quantity: qty)],
+      userEmail: FirebaseAuth.instance.currentUser?.email ?? "Unknown",
+    );
+    // ✅ Add these clean-up lines:
+    selectedStitchingQty.remove(key);
+    expandedItems.remove(key);
+    _showSnack("Repaired and returned to active");
+  } catch (e) { _showSnack(e.toString()); }
+  setState(() => isProcessing = false);
+}
+
   Widget _buildSiteHistoryList(String siteName) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -137,16 +452,13 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
             Filter('toSite', isEqualTo: siteName),
           ))
           .orderBy('timestamp', descending: true)
-          .limit(15) // Show last 15 actions
+          .limit(15) 
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) return _emptyBox("Error loading history");
         if (!snapshot.hasData) return const Center(child: LinearProgressIndicator(color: primaryOrange));
-
         final docs = snapshot.data!.docs;
-
         if (docs.isEmpty) return _emptyBox("No transaction history yet");
-
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -161,7 +473,6 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
             itemBuilder: (context, index) {
               final log = InventoryLog.fromMap(docs[index].id, docs[index].data() as Map<String, dynamic>);
               final dateStr = DateFormat('dd MMM, hh:mm a').format(log.timestamp);
-
               return Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -261,123 +572,7 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
         border: Border.all(color: Colors.black.withAlpha(8)),
       ),
       child: Center(
-        child: Text(
-          text,
-          style: TextStyle(color: textMuted.withAlpha(128), fontStyle: FontStyle.italic),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActiveCard(Flag flag) {
-    final key = "active_${flag.type}_${flag.size}";
-    final isExpanded = expandedItems.contains(key);
-    final controller = TextEditingController(
-        text: (selectedActiveQty[key] ?? 0) == 0 ? '' : selectedActiveQty[key].toString()
-    );
-
-    return _cardContainer(
-      borderColor: primaryOrange.withAlpha(26),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _flagInfoBlock(flag, "Available: ${flag.quantity}"),
-              IconButton(
-                onPressed: () => setState(() => isExpanded ? expandedItems.remove(key) : expandedItems.add(key)),
-                icon: Icon(isExpanded ? Icons.close : Icons.local_laundry_service_rounded),
-                color: primaryOrange,
-                style: IconButton.styleFrom(backgroundColor: primaryOrange.withAlpha(20)),
-              )
-            ],
-          ),
-          if (isExpanded) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: MyTextField(
-                    hintText: "Qty to Wash",
-                    obscureText: false,
-                    controller: controller,
-                    keyboardType: TextInputType.number,
-                    prefixIcon: Icons.edit_note_rounded,
-                    onChanged: (value) {
-                      int qty = int.tryParse(value) ?? 0;
-                      if (qty > flag.quantity) qty = flag.quantity;
-                      selectedActiveQty[key] = qty;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                MyButton(
-                  text: "Send",
-                  onTap: isProcessing ? null : () => _moveToWashing(flag, key),
-                  horizontalPadding: 20,
-                  borderRadius: 14,
-                ),
-              ],
-            ),
-          ]
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWashingCard(Flag flag) {
-    final key = "washing_${flag.type}_${flag.size}";
-    final isExpanded = expandedItems.contains(key);
-    final controller = TextEditingController(
-        text: (selectedWashingQty[key] ?? 0) == 0 ? '' : selectedWashingQty[key].toString()
-    );
-
-    return _cardContainer(
-      color: const Color(0xFFF1F4F8),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _flagInfoBlock(flag, "In Washing: ${flag.quantity}", labelColor: Colors.blueGrey),
-              IconButton(
-                onPressed: () => setState(() => isExpanded ? expandedItems.remove(key) : expandedItems.add(key)),
-                icon: Icon(isExpanded ? Icons.close : Icons.restore_rounded),
-                color: Colors.green.shade700,
-                style: IconButton.styleFrom(backgroundColor: Colors.green.withAlpha(20)),
-              )
-            ],
-          ),
-          if (isExpanded) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: MyTextField(
-                    hintText: "Qty to Return",
-                    obscureText: false,
-                    controller: controller,
-                    keyboardType: TextInputType.number,
-                    prefixIcon: Icons.restore_rounded,
-                    onChanged: (value) {
-                      int qty = int.tryParse(value) ?? 0;
-                      if (qty > flag.quantity) qty = flag.quantity;
-                      selectedWashingQty[key] = qty;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                MyButton(
-                  text: "Return",
-                  backgroundColor: Colors.green.shade600,
-                  onTap: isProcessing ? null : () => _moveToActive(flag, key),
-                  horizontalPadding: 20,
-                  borderRadius: 14,
-                ),
-              ],
-            ),
-          ]
-        ],
+        child: Text(text, style: TextStyle(color: textMuted.withAlpha(128), fontStyle: FontStyle.italic)),
       ),
     );
   }
@@ -408,13 +603,7 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
         color: color ?? Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: borderColor ?? Colors.black.withAlpha(8)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(5),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: child,
     );
@@ -422,49 +611,35 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
 
   Future<void> _moveToWashing(Flag flag, String key) async {
     final qty = selectedActiveQty[key] ?? 0;
-    if (qty <= 0) {
-      _showSnack("Enter valid quantity");
-      return;
-    }
+    if (qty <= 0) { _showSnack("Enter valid quantity"); return; }
     setState(() => isProcessing = true);
     try {
-      final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "Unknown User";
-
       await siteService.moveActiveToWashing(
         siteId: widget.site.id,
         flags: [Flag(type: flag.type, size: flag.size, quantity: qty)],
-        userEmail: userEmail, 
+        userEmail: FirebaseAuth.instance.currentUser?.email ?? "Unknown", 
       );
       selectedActiveQty.remove(key);
       expandedItems.remove(key);
       _showSnack("Moved to washing");
-    } catch (e) {
-      _showSnack(e.toString());
-    }
+    } catch (e) { _showSnack(e.toString()); }
     setState(() => isProcessing = false);
   }
 
   Future<void> _moveToActive(Flag flag, String key) async {
     final qty = selectedWashingQty[key] ?? 0;
-    if (qty <= 0) {
-      _showSnack("Enter valid quantity");
-      return;
-    }
+    if (qty <= 0) { _showSnack("Enter valid quantity"); return; }
     setState(() => isProcessing = true);
     try {
-      final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "Unknown User";
-
       await siteService.moveWashingToActive(
         siteId: widget.site.id,
         flags: [Flag(type: flag.type, size: flag.size, quantity: qty)],
-        userEmail: userEmail, 
+        userEmail: FirebaseAuth.instance.currentUser?.email ?? "Unknown", 
       );
       selectedWashingQty.remove(key);
       expandedItems.remove(key);
       _showSnack("Returned to active");
-    } catch (e) {
-      _showSnack(e.toString());
-    }
+    } catch (e) { _showSnack(e.toString()); }
     setState(() => isProcessing = false);
   }
 

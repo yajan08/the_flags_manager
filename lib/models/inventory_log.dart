@@ -5,7 +5,7 @@ class InventoryLog {
   final String? id;           // Unique ID for the log
   final String userEmail;     // Email of the person who made the change
   final DateTime timestamp;   // Exact time of change
-  final String action;        // 'TRANSFER', 'WASH_START', 'WASH_RETURN', 'RECEIVE', 'ADD'
+  final String action;        // 'TRANSFER', 'WASH_START', 'WASH_RETURN', 'RECEIVE', 'ADD', 'STITCH_START', 'STITCH_RETURN', 'DISPOSE'
   final String fromSite;      // Source site name
   final String toSite;        // Destination site name
   final List<Flag> flags;     // List of flags moved
@@ -37,7 +37,9 @@ class InventoryLog {
   factory InventoryLog.fromMap(String id, Map<String, dynamic> map) => InventoryLog(
         id: id,
         userEmail: map['userEmail'] ?? '',
-        timestamp: (map['timestamp'] as Timestamp).toDate(),
+        timestamp: map['timestamp'] != null 
+            ? (map['timestamp'] as Timestamp).toDate() 
+            : DateTime.now(),
         action: map['action'] ?? '',
         fromSite: map['fromSite'] ?? '',
         toSite: map['toSite'] ?? '',
