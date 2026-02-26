@@ -48,7 +48,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flags Manager',
+      title: 'Flags Flow',
       // THIS IS THE KEY: It tracks every route change automatically
       navigatorObservers: [
         PosthogObserver(),

@@ -142,39 +142,119 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
     );
   }
 
-  void _confirmDispose(Flag flag, String source) {
-    showDialog(
+void _confirmDispose(Flag flag, String source) {
+    final TextEditingController disposeQtyCtrl = TextEditingController();
+    final TextEditingController reasonCtrl = TextEditingController(); // ✅ Added for notes
+    final formKey = GlobalKey<FormState>();
+
+    // Determine the default reason based on where the user is clicking from
+    String defaultReason = source == 'stitching' 
+        ? "Stitching" 
+        : source == 'washing' 
+            ? "Washing" 
+            : "General";
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Confirm Disposal"),
-        content: Text("Are you sure you want to dispose of ${flag.quantity}x ${flag.type} (${flag.size})? This action is permanent."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              String reason = source == 'stitching' ? "Stitching" : source == 'washing' ? "Washing" : "General";
-              _handleDisposal(flag, source, reason);
-            },
-            child: const Text("Dispose", style: TextStyle(color: Colors.red)),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          left: 24, right: 24, top: 24,
+        ),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Dispose Flags", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textDark)),
+              const SizedBox(height: 8),
+              Text("How many ${flag.type} (${flag.size}) flags from $source are being disposed?", 
+                style: const TextStyle(color: textMuted, fontSize: 14)),
+              const SizedBox(height: 20),
+              
+              // 🔢 Quantity Input
+              MyTextField(
+                controller: disposeQtyCtrl,
+                hintText: "Quantity (Max: ${flag.quantity})",
+                obscureText: false,
+                keyboardType: TextInputType.number,
+                prefixIcon: Icons.delete_sweep_rounded,
+              ),
+              
+              const SizedBox(height: 12),
+
+              // 📝 Reason/Note Input
+              MyTextField(
+                controller: reasonCtrl,
+                hintText: "Reason (Default: $defaultReason)", // ✅ Shows default in hint
+                obscureText: false,
+                prefixIcon: Icons.note_add_rounded,
+              ),
+
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancel", style: TextStyle(color: textMuted, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: MyButton(
+                      text: "Confirm Disposal",
+                      backgroundColor: Colors.red,
+                      onTap: () {
+                        final qty = int.tryParse(disposeQtyCtrl.text.trim()) ?? 0;
+                        if (qty <= 0 || qty > flag.quantity) {
+                          _showSnack("Please enter a valid quantity up to ${flag.quantity}");
+                          return;
+                        }
+
+                        // ✅ Logic: Use user input if provided, otherwise use defaultReason
+                        String finalReason = reasonCtrl.text.trim().isEmpty 
+                            ? defaultReason 
+                            : reasonCtrl.text.trim();
+
+                        Navigator.pop(context);
+                        
+                        final flagToDispose = Flag(
+                          type: flag.type, 
+                          size: flag.size, 
+                          quantity: qty,
+                          reason: finalReason // ✅ Pass the reason here
+                        );
+                        
+                        _handleDisposal(flagToDispose, source, finalReason);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Future<void> _handleDisposal(Flag flag, String source, String reason) async {
+Future<void> _handleDisposal(Flag flagToDispose, String source, String finalReason) async {
     setState(() => isProcessing = true);
     try {
       final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "Unknown User";
       await siteService.disposeFlags(
         siteId: widget.site.id,
-        flags: [Flag(type: flag.type, size: flag.size, quantity: flag.quantity)],
+        flags: [flagToDispose], 
         source: source,
-        reason: reason,
+        reason: finalReason, // ✅ Pass the chosen reason to the service
         userEmail: userEmail,
       );
-      _showSnack("Flags disposed: $reason");
+      _showSnack("Successfully disposed ${flagToDispose.quantity} flags: $finalReason");
     } catch (e) {
       _showSnack(e.toString());
     }
@@ -388,24 +468,76 @@ class _SiteDetailsScreenState extends State<SiteDetailsScreen> {
     );
   }
 
-  Widget _buildDisposedCard(Flag flag) {
-    return _cardContainer(
-      color: Colors.red.withAlpha(5),
-      borderColor: Colors.red.withAlpha(15),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _flagInfoBlock(flag, "Disposed: ${flag.quantity}", labelColor: Colors.red),
-          if (flag.reason != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: Colors.red.withAlpha(20), borderRadius: BorderRadius.circular(8)),
-              child: Text(flag.reason!, style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
-            )
-        ],
-      ),
-    );
-  }
+Widget _buildDisposedCard(Flag flag) {
+  return _cardContainer(
+    color: Colors.red.withAlpha(5),
+    borderColor: Colors.red.withAlpha(15),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // 1. Hero Section: Flag Info (Occupies all available space)
+        Expanded(
+          child: _flagInfoBlock(flag, "Disposed: ${flag.quantity}", labelColor: Colors.red),
+        ),
+        
+        const SizedBox(width: 12),
+
+        // 2. Elegant Reason Badge: Constrained & Tappable
+        if (flag.reason != null && flag.reason!.isNotEmpty)
+          GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  title: const Text("Disposal Note", style: TextStyle(fontWeight: FontWeight.w900)),
+                  content: Text(flag.reason!, style: const TextStyle(fontSize: 15, color: textDark)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Close", style: TextStyle(color: primaryOrange, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 100), // ✅ Limits size to prevent overflow
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white, // Modern "Elevated" badge look
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.withAlpha(40)),
+                boxShadow: [
+                  BoxShadow(color: Colors.red.withAlpha(10), blurRadius: 4, offset: const Offset(0, 2))
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.notes_rounded, size: 12, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      flag.reason!,
+                      style: const TextStyle(
+                        color: Colors.red, 
+                        fontSize: 10, 
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+      ],
+    ),
+  );
+}
 
   Future<void> _handleMoveToStitching(Flag flag, String key) async {
   final qty = selectedStitchingQty[key] ?? 0;
